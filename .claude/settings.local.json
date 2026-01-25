@@ -3,7 +3,19 @@
     "allow": [
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(python3:*)",
+      "Bash(wc:*)",
+      "Bash(awk:*)",
+      "Bash(python -m scripts.import_kaggle:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(pip install:*)",
+      "WebSearch",
+      "Bash(python scripts/process_recordings.py:*)",
+      "Bash(python scripts/generate_dictionary.py:*)",
+      "Bash(python scripts/cli.py:*)",
+      "Bash(python -c:*)",
+      "Bash(ls:*)"
     ]
   }
 }

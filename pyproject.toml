@@ -44,7 +44,7 @@ all = [
 ]
 
 [project.scripts]
-bsl = "scripts.cli:main"
+bsl-tool = "scripts.cli:main"
 
 [project.urls]
 Repository = "https://github.com/your-org/bsl-data-extraction"
