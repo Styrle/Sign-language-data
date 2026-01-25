@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSL Sign Recorder</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>BSL Sign Recorder</h1>
+        <div id="status" class="status status-loading">
+            <span class="status-dot"></span>
+            <span class="status-text">Loading model...</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="video-section">
+            <div class="video-container">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
+                <div id="countdown" class="countdown hidden"></div>
+                <div id="recording-indicator" class="recording-indicator hidden">
+                    <span class="rec-dot"></span> REC
+                </div>
+            </div>
+            <div class="video-controls">
+                <label>
+                    <input type="checkbox" id="mirror" checked>
+                    Mirror video
+                </label>
+                <select id="camera-select">
+                    <option value="">Select camera...</option>
+                </select>
+            </div>
+        </section>
+
+        <section class="control-section">
+            <div class="recording-controls">
+                <h2>Record Sign</h2>
+
+                <div class="form-group">
+                    <label for="category-select">Category</label>
+                    <select id="category-select">
+                        <option value="">All categories</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="sign-select">Sign</label>
+                    <select id="sign-select">
+                        <option value="">Select a sign...</option>
+                    </select>
+                </div>
+
+                <div class="sign-info" id="sign-info">
+                    <p class="sign-description"></p>
+                    <p class="sign-hands"></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="duration">Duration (seconds)</label>
+                    <input type="number" id="duration" value="3" min="1" max="10" step="1">
+                </div>
+
+                <div class="button-group">
+                    <button id="record-btn" class="btn btn-primary" disabled>
+                        Start Recording
+                    </button>
+                    <button id="stop-btn" class="btn btn-danger hidden">
+                        Stop
+                    </button>
+                </div>
+            </div>
+
+            <div class="review-panel hidden" id="review-panel">
+                <h3>Review Recording</h3>
+                <div class="review-stats">
+                    <p>Frames: <span id="frame-count">0</span></p>
+                    <p>Duration: <span id="rec-duration">0</span>ms</p>
+                    <p>Hands detected: <span id="hands-detected">0</span>%</p>
+                </div>
+                <div class="button-group">
+                    <button id="save-btn" class="btn btn-success">Save</button>
+                    <button id="discard-btn" class="btn btn-secondary">Discard</button>
+                </div>
+            </div>
+
+            <div class="progress-section">
+                <h2>Progress</h2>
+                <div class="progress-stats">
+                    <span id="recorded-count">0</span> / <span id="total-count">0</span> signs recorded
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="sign-checklist" id="sign-checklist"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>BSL Data Extraction Tool - Recording Module</p>
+    </footer>
+
+    <!-- TensorFlow.js and Hand Pose Detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.17.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.17.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection@2.0.1"></script>
+
+    <!-- Sign definitions (embedded) -->
+    <script src="sign-definitions.js"></script>
+
+    <!-- Main app -->
+    <script src="app.js"></script>
+</body>
+</html>
