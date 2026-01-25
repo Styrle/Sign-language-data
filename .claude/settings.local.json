@@ -15,7 +15,8 @@
       "Bash(python scripts/generate_dictionary.py:*)",
       "Bash(python scripts/cli.py:*)",
       "Bash(python -c:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(python scripts/pipeline.py:*)"
     ]
   }
 }

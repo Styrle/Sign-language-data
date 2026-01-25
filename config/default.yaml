@@ -1,0 +1,150 @@
+# BSL Data Extraction Pipeline - Default Configuration
+# =====================================================
+#
+# This file contains the default configuration for the BSL processing pipeline.
+# Copy this file and modify as needed for your environment.
+#
+# Usage:
+#   bsl-tool pipeline run --config config/default.yaml
+#   python scripts/pipeline.py --config config/default.yaml
+
+# =============================================================================
+# Directory Paths
+# =============================================================================
+
+# Source data directories
+kaggle_dir: data/kaggle-bsl
+recordings_dir: data/raw-recordings
+
+# Output directories
+processed_dir: data/processed
+output_dir: data/output
+
+# Pipeline state directory (for resume capability)
+state_dir: data/.pipeline
+
+# =============================================================================
+# Dictionary Settings
+# =============================================================================
+
+# Semantic version for the generated dictionary
+version: "1.0.0"
+
+# Base name for output files (will generate .json, .min.json, .d.ts)
+dictionary_name: bsl-dictionary
+
+# =============================================================================
+# Processing Parameters
+# =============================================================================
+
+# Minimum number of samples required to include a sign
+# Signs with fewer samples will still be processed but flagged
+min_samples_per_sign: 1
+
+# Minimum quality score to pass validation (0.0 - 1.0)
+# Signs below this threshold will generate warnings
+quality_threshold: 0.6
+
+# Minimum MediaPipe detection confidence to include a frame (0.0 - 1.0)
+# Frames with lower confidence are discarded
+min_confidence: 0.5
+
+# Outlier removal method
+# Options: zscore, iqr, none
+# - zscore: Remove samples > 2.5 standard deviations from mean
+# - iqr: Remove samples outside 1.5 × IQR
+# - none: Keep all samples
+outlier_method: zscore
+
+# Averaging method for computing canonical pose
+# Options: mean, trimmed, median
+# - mean: Simple arithmetic mean
+# - trimmed: Mean after removing top/bottom 10%
+# - median: Median value (most robust)
+averaging_method: trimmed
+
+# Multiplier for tolerance calculation
+# Higher values = more forgiving matching
+# tolerance = std_dev × tolerance_multiplier
+tolerance_multiplier: 2.0
+
+# =============================================================================
+# Normalization Settings
+# =============================================================================
+
+# Anchor point for translation normalization
+# Options: wrist, centroid, palm_center
+normalization_anchor: wrist
+
+# Scale normalization method
+# Options: palm_width, bounding_box, fixed
+# - palm_width: Distance from index MCP to pinky MCP = 1.0
+# - bounding_box: Bounding box diagonal = 1.0
+# - fixed: No scaling
+normalization_scale: palm_width
+
+# Whether to apply rotation normalization
+# When true, aligns palm to face +Z and fingers to point +Y
+apply_rotation: true
+
+# =============================================================================
+# Pipeline Behavior
+# =============================================================================
+
+# Skip items that have already been processed
+# Set to false to reprocess everything
+skip_existing: true
+
+# Stop pipeline on first error
+# Set to false to continue processing after errors
+fail_fast: false
+
+# Generate minified JSON output
+generate_minified: true
+
+# Generate TypeScript type definitions
+generate_typescript: true
+
+# =============================================================================
+# Logging
+# =============================================================================
+
+# Log file path (null for console only)
+log_file: null
+
+# Log level: DEBUG, INFO, WARNING, ERROR
+log_level: INFO
+
+# =============================================================================
+# Advanced Settings (uncomment to override)
+# =============================================================================
+
+# Z-score threshold for outlier removal (when outlier_method: zscore)
+# zscore_threshold: 2.5
+
+# IQR multiplier for outlier removal (when outlier_method: iqr)
+# iqr_multiplier: 1.5
+
+# Trim percentage for trimmed mean (when averaging_method: trimmed)
+# trim_percent: 10
+
+# Minimum tolerance value (prevents zero tolerance)
+# min_tolerance: 0.02
+
+# Maximum tolerance value (caps extreme variation)
+# max_tolerance: 0.2
+
+# Angle output format: degrees, radians
+# angle_format: degrees
+
+# Three.js Euler angle order
+# threejs_euler_order: XYZ
+
+# Validate angles against anatomical limits
+# validate_anatomical_limits: true
+
+# Batch size for processing
+# batch_size: 100
+
+# Parallel processing workers
+# parallel_workers: 4
