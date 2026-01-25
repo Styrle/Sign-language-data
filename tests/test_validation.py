@@ -185,15 +185,17 @@ class TestValidatePoint:
         result = validate_point(point)
         assert result.is_valid
 
-    def test_point_out_of_range_rejected_by_pydantic(self):
-        """Test that Pydantic rejects out-of-range coordinates."""
-        with pytest.raises(ValidationError):
-            Point3D(x=1.5, y=0.5, z=0.0)
+    def test_point_out_of_range_accepted(self):
+        """Test that Point3D accepts coordinates outside [0,1] for normalized poses."""
+        # After normalization, coordinates can be outside [0,1]
+        point = Point3D(x=1.5, y=0.5, z=0.0)
+        assert point.x == 1.5
 
-    def test_point_negative_rejected_by_pydantic(self):
-        """Test that Pydantic rejects negative coordinates."""
-        with pytest.raises(ValidationError):
-            Point3D(x=-0.5, y=0.5, z=0.0)
+    def test_point_negative_accepted(self):
+        """Test that Point3D accepts negative coordinates for normalized poses."""
+        # After normalization with wrist at origin, many points have negative coords
+        point = Point3D(x=-0.5, y=0.5, z=0.0)
+        assert point.x == -0.5
 
     def test_point_z_can_be_negative(self):
         """Test that z coordinate can be negative (depth)."""

@@ -17,15 +17,16 @@ from typing_extensions import Self
 
 
 class Point3D(BaseModel):
-    """A 3D point with normalized coordinates.
+    """A 3D point with coordinates.
 
-    All coordinates are normalized to the range [0, 1] representing
-    positions relative to the image/frame dimensions.
+    For raw landmark data, coordinates are typically normalized to [0, 1]
+    relative to image dimensions. For processed/canonical poses, coordinates
+    are in a normalized space (e.g., wrist at origin, palm width = 1).
     """
 
-    x: Annotated[float, Field(ge=0.0, le=1.0, description="Normalized x coordinate")]
-    y: Annotated[float, Field(ge=0.0, le=1.0, description="Normalized y coordinate")]
-    z: Annotated[float, Field(description="Depth coordinate (may exceed 0-1 range)")]
+    x: float = Field(description="X coordinate")
+    y: float = Field(description="Y coordinate")
+    z: float = Field(description="Z/depth coordinate")
 
 
 class HandLandmark(BaseModel):

@@ -169,3 +169,41 @@ WRIST_INDEX: int = 0
 # Palm landmarks used for hand orientation
 PALM_INDICES: tuple[int, ...] = (0, 5, 9, 13, 17)
 """Indices forming the palm base (wrist + finger MCPs)."""
+
+
+# =============================================================================
+# Individual Landmark Indices
+# =============================================================================
+
+# Wrist
+WRIST: int = 0
+
+# Thumb
+THUMB_CMC: int = 1
+THUMB_MCP: int = 2
+THUMB_IP: int = 3
+THUMB_TIP: int = 4
+
+# Index finger
+INDEX_FINGER_MCP: int = 5
+INDEX_FINGER_PIP: int = 6
+INDEX_FINGER_DIP: int = 7
+INDEX_FINGER_TIP: int = 8
+
+# Middle finger
+MIDDLE_FINGER_MCP: int = 9
+MIDDLE_FINGER_PIP: int = 10
+MIDDLE_FINGER_DIP: int = 11
+MIDDLE_FINGER_TIP: int = 12
+
+# Ring finger
+RING_FINGER_MCP: int = 13
+RING_FINGER_PIP: int = 14
+RING_FINGER_DIP: int = 15
+RING_FINGER_TIP: int = 16
+
+# Pinky
+PINKY_MCP: int = 17
+PINKY_PIP: int = 18
+PINKY_DIP: int = 19
+PINKY_TIP: int = 20
