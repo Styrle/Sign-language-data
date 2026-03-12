@@ -19,6 +19,8 @@ const state = {
     selectedSignId: null,
     mirrorVideo: true,
     recordingDuration: 3000,
+    detectedHands: { left: null, right: null },
+    bothHandsReady: false,
 };
 
 // =============================================================================
@@ -50,6 +52,11 @@ const elements = {
     totalCount: document.getElementById('total-count'),
     progressFill: document.getElementById('progress-fill'),
     signChecklist: document.getElementById('sign-checklist'),
+    handStatusPanel: document.getElementById('hand-status'),
+    rightHandStatus: document.getElementById('right-hand-status'),
+    leftHandStatus: document.getElementById('left-hand-status'),
+    bothHandsStatus: document.getElementById('both-hands-status'),
+    referencePanel: document.getElementById('reference-panel'),
 };
 
 // =============================================================================
@@ -137,7 +144,6 @@ async function initDetector() {
         state.detector = await handPoseDetection.createDetector(model, detectorConfig);
 
         setStatus('ready', 'Ready to record');
-        elements.recordBtn.disabled = false;
 
         // Start detection loop
         startDetectionLoop();
@@ -162,19 +168,29 @@ async function detectFrame() {
         });
 
         drawLandmarks(hands);
+        updateHandStatus(hands);
 
         // If recording, store frame
         if (state.isRecording && state.currentRecording) {
             const timestamp = Date.now() - state.currentRecording.startTime;
             state.currentRecording.frames.push({
                 timestamp_ms: timestamp,
-                hands: hands.map(hand => ({
-                    handedness: hand.handedness,
-                    confidence: hand.score,
-                    landmarks: hand.keypoints3D
-                        ? hand.keypoints3D.map(p => [p.x, p.y, p.z])
-                        : hand.keypoints.map(p => [p.x / elements.video.videoWidth, p.y / elements.video.videoHeight, 0]),
-                })),
+                hands: hands.map(hand => {
+                    // Flip MediaPipe label to user's perspective when mirrored
+                    let userHandedness;
+                    if (state.mirrorVideo) {
+                        userHandedness = hand.handedness === 'Left' ? 'Right' : 'Left';
+                    } else {
+                        userHandedness = hand.handedness;
+                    }
+                    return {
+                        handedness: userHandedness,
+                        confidence: hand.score,
+                        landmarks: hand.keypoints3D
+                            ? hand.keypoints3D.map(p => [p.x, p.y, p.z])
+                            : hand.keypoints.map(p => [p.x / elements.video.videoWidth, p.y / elements.video.videoHeight, 0]),
+                    };
+                }),
             });
         }
 
@@ -190,44 +206,41 @@ function drawLandmarks(hands) {
     const ctx = elements.canvas.getContext('2d');
     ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
 
-    // Finger colors
-    const fingerColors = {
-        thumb: '#ef4444',
-        index_finger: '#f97316',
-        middle_finger: '#eab308',
-        ring_finger: '#22c55e',
-        pinky: '#3b82f6',
-        wrist: '#a855f7',
-    };
-
-    // Connections
     const connections = [
-        [0,1],[1,2],[2,3],[3,4],           // thumb
-        [0,5],[5,6],[6,7],[7,8],           // index
-        [0,9],[9,10],[10,11],[11,12],      // middle
-        [0,13],[13,14],[14,15],[15,16],    // ring
-        [0,17],[17,18],[18,19],[19,20],    // pinky
-        [5,9],[9,13],[13,17],              // palm
+        [0,1],[1,2],[2,3],[3,4],
+        [0,5],[5,6],[6,7],[7,8],
+        [0,9],[9,10],[10,11],[11,12],
+        [0,13],[13,14],[14,15],[15,16],
+        [0,17],[17,18],[18,19],[19,20],
+        [5,9],[9,13],[13,17],
     ];
 
     for (const hand of hands) {
         const kp = hand.keypoints;
+        const mpLabel = hand.handedness;
 
-        // Draw connections
+        // Determine user-perspective hand label for coloring
+        // MediaPipe labels hands from the camera's perspective.
+        // When video is mirrored (default), the user's RIGHT hand is labeled "Left" by MediaPipe
+        // and the user's LEFT hand is labeled "Right" by MediaPipe.
+        // We flip the labels to match the user's perspective.
+        let userLabel;
+        if (state.mirrorVideo) {
+            userLabel = mpLabel === 'Left' ? 'right' : 'left';
+        } else {
+            userLabel = mpLabel === 'Left' ? 'left' : 'right';
+        }
+
+        // Hand colors: right = blue, left = green
+        const handColor = userLabel === 'right' ? '#3b82f6' : '#22c55e';
+        const handColorLight = userLabel === 'right' ? '#93c5fd' : '#86efac';
+
+        // Draw connections in hand color
         ctx.lineWidth = 3;
+        ctx.strokeStyle = handColor;
         for (const [i, j] of connections) {
             const p1 = kp[i];
             const p2 = kp[j];
-
-            // Get color based on finger
-            let color = '#a855f7';
-            if (i >= 1 && i <= 4) color = fingerColors.thumb;
-            else if (i >= 5 && i <= 8) color = fingerColors.index_finger;
-            else if (i >= 9 && i <= 12) color = fingerColors.middle_finger;
-            else if (i >= 13 && i <= 16) color = fingerColors.ring_finger;
-            else if (i >= 17 && i <= 20) color = fingerColors.pinky;
-
-            ctx.strokeStyle = color;
             ctx.beginPath();
             ctx.moveTo(p1.x, p1.y);
             ctx.lineTo(p2.x, p2.y);
@@ -238,24 +251,106 @@ function drawLandmarks(hands) {
         for (let i = 0; i < kp.length; i++) {
             const p = kp[i];
 
-            let color = fingerColors.wrist;
-            if (i >= 1 && i <= 4) color = fingerColors.thumb;
-            else if (i >= 5 && i <= 8) color = fingerColors.index_finger;
-            else if (i >= 9 && i <= 12) color = fingerColors.middle_finger;
-            else if (i >= 13 && i <= 16) color = fingerColors.ring_finger;
-            else if (i >= 17 && i <= 20) color = fingerColors.pinky;
-
-            ctx.fillStyle = color;
+            // Outer ring in hand color
+            ctx.fillStyle = handColor;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 6, 0, 2 * Math.PI);
+            ctx.arc(p.x, p.y, 7, 0, 2 * Math.PI);
             ctx.fill();
 
-            // White center
-            ctx.fillStyle = 'white';
+            // Inner dot in lighter shade
+            ctx.fillStyle = handColorLight;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 2, 0, 2 * Math.PI);
+            ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
             ctx.fill();
         }
+
+        // Draw hand label near wrist
+        const wrist = kp[0];
+        ctx.fillStyle = handColor;
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(userLabel === 'right' ? 'R' : 'L', wrist.x - 20, wrist.y + 5);
+    }
+}
+
+function updateHandStatus(hands) {
+    // MediaPipe labels hands from the camera's perspective.
+    // When video is mirrored (default), the user's RIGHT hand is labeled "Left" by MediaPipe
+    // and the user's LEFT hand is labeled "Right" by MediaPipe.
+    // We flip the labels to match the user's perspective.
+
+    state.detectedHands = { left: null, right: null };
+
+    for (const hand of hands) {
+        const confidence = hand.score;
+        const mpLabel = hand.handedness; // MediaPipe label (camera perspective)
+
+        // Flip labels when mirrored to get user's perspective
+        let userLabel;
+        if (state.mirrorVideo) {
+            userLabel = mpLabel === 'Left' ? 'right' : 'left';
+        } else {
+            userLabel = mpLabel === 'Left' ? 'left' : 'right';
+        }
+
+        state.detectedHands[userLabel] = { confidence, handedness: userLabel };
+    }
+
+    // Update UI
+    const rightDetected = state.detectedHands.right && state.detectedHands.right.confidence > 0.7;
+    const leftDetected = state.detectedHands.left && state.detectedHands.left.confidence > 0.7;
+
+    const rightEl = elements.rightHandStatus;
+    const leftEl = elements.leftHandStatus;
+    const bothEl = elements.bothHandsStatus;
+
+    if (rightDetected) {
+        const conf = Math.round(state.detectedHands.right.confidence * 100);
+        rightEl.querySelector('.hand-detect-status').textContent = `\u2713 detected (${conf}%)`;
+        rightEl.classList.add('detected');
+        rightEl.classList.remove('not-detected');
+    } else {
+        rightEl.querySelector('.hand-detect-status').textContent = '\u2717 not detected';
+        rightEl.classList.remove('detected');
+        rightEl.classList.add('not-detected');
+    }
+
+    if (leftDetected) {
+        const conf = Math.round(state.detectedHands.left.confidence * 100);
+        leftEl.querySelector('.hand-detect-status').textContent = `\u2713 detected (${conf}%)`;
+        leftEl.classList.add('detected');
+        leftEl.classList.remove('not-detected');
+    } else {
+        leftEl.querySelector('.hand-detect-status').textContent = '\u2717 not detected';
+        leftEl.classList.remove('detected');
+        leftEl.classList.add('not-detected');
+    }
+
+    // Check if selected sign requires both hands
+    const signId = elements.signSelect.value;
+    const sign = signId ? getSignById(signId) : null;
+    const needsBothHands = sign ? sign.twoHanded : false;
+
+    if (needsBothHands) {
+        state.bothHandsReady = rightDetected && leftDetected;
+        if (state.bothHandsReady) {
+            bothEl.querySelector('.both-hands-ready').textContent = 'Both hands ready \u2713';
+            bothEl.classList.add('ready');
+            bothEl.classList.remove('not-ready');
+        } else {
+            bothEl.querySelector('.both-hands-ready').textContent = 'Need both hands \u2717';
+            bothEl.classList.remove('ready');
+            bothEl.classList.add('not-ready');
+        }
+        bothEl.style.display = '';
+    } else {
+        state.bothHandsReady = rightDetected;
+        bothEl.style.display = 'none';
+    }
+
+    // Enable/disable record button based on hand detection
+    if (!state.isRecording) {
+        const canRecord = needsBothHands ? state.bothHandsReady : (rightDetected || leftDetected);
+        elements.recordBtn.disabled = !canRecord || !signId;
     }
 }
 
@@ -336,6 +431,7 @@ function saveRecording() {
 
     const exportData = {
         sign_id: recording.sign_id,
+        recorder: 'webcam',
         recorded_at: new Date().toISOString(),
         duration_ms: duration,
         frame_count: recording.frames.length,
@@ -459,6 +555,15 @@ function updateSignInfo() {
         elements.signInfo.style.display = 'none';
     }
 
+    const refPanel = elements.referencePanel;
+    if (sign && sign.twoHanded) {
+        refPanel.querySelector('.reference-title').textContent =
+            `Letter ${sign.name} — ${sign.description}`;
+        refPanel.style.display = 'block';
+    } else {
+        refPanel.style.display = 'none';
+    }
+
     updateProgressUI();
 }
 
@@ -496,6 +601,14 @@ function setupEventListeners() {
         if (chip) {
             elements.signSelect.value = chip.dataset.signId;
             updateSignInfo();
+        }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+        if (e.code === 'Space' && !state.isRecording && !elements.recordBtn.disabled) {
+            e.preventDefault();
+            startRecording();
         }
     });
 

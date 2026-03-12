@@ -1577,6 +1577,63 @@ def init(config, force):
 
 
 # =============================================================================
+# Verify Command
+# =============================================================================
+
+
+@main.command("verify")
+@click.option("--strict", is_flag=True, help="Fail on warnings too (not just failures)")
+@click.option("--report-only", is_flag=True, help="Generate report but don't exit with error code")
+@click.option("--output", "-o", type=click.Path(),
+              default="data/output/phase0-completion-report.md",
+              help="Output path for markdown report")
+@click.option("--min-samples", type=int, default=5, help="Minimum samples per sign")
+@click.option("--min-quality", type=float, default=0.5, help="Minimum quality score")
+@pass_config
+def verify(config, strict, report_only, output, min_samples, min_quality):
+    """Verify Phase 0 completion - run all checks."""
+    click.echo(styled_header("Phase 0 Completion Verification"))
+
+    try:
+        from scripts.verify_completion import Phase0Verifier, VerificationConfig
+
+        # Configure verifier
+        verify_config = VerificationConfig(
+            min_samples_per_sign=min_samples,
+            min_quality_score=min_quality,
+        )
+
+        verifier = Phase0Verifier(verify_config)
+
+        # Run checks
+        all_passed = verifier.run_all_checks()
+
+        # Console output
+        print(verifier.generate_console_report())
+
+        # Save report
+        output_path = Path(output)
+        verifier.save_report(output_path)
+        click.echo(f"\nReport saved to: {output_path}")
+
+        # Exit code
+        if report_only:
+            return
+
+        if strict:
+            total_issues = sum(c.failed + c.warnings for c in verifier.results)
+            if total_issues > 0:
+                raise SystemExit(1)
+        else:
+            if not all_passed:
+                raise SystemExit(1)
+
+    except ImportError as e:
+        click.echo(styled_error(f"Failed to import verification module: {e}"))
+        raise SystemExit(1)
+
+
+# =============================================================================
 # Entry Point
 # =============================================================================
 

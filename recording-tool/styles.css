@@ -425,3 +425,65 @@ footer {
     background: var(--accent-color);
     border-radius: 4px;
 }
+
+/* Hand status panel */
+.hand-status-panel {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background-color: var(--surface-color);
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.hand-status-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.hand-label {
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.hand-status-item.detected .hand-detect-status {
+    color: var(--success-color);
+}
+
+.hand-status-item.not-detected .hand-detect-status {
+    color: var(--error-color);
+}
+
+.hand-status-item .both-hands-ready {
+    font-weight: 600;
+}
+
+.hand-status-item.ready .both-hands-ready {
+    color: var(--success-color);
+}
+
+.hand-status-item.not-ready .both-hands-ready {
+    color: var(--error-color);
+}
+
+/* Reference panel */
+.reference-panel {
+    padding: 0.75rem 1rem;
+    background-color: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+
+.reference-panel .reference-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.reference-panel .reference-note {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.8rem;
+}

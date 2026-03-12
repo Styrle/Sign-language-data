@@ -579,6 +579,16 @@ def process_recording(
 
     warnings = []
 
+    # Check if this is a two-handed recording
+    has_both_hands = any(
+        f.left_hand and f.right_hand for f in recording.frames
+    )
+    if has_both_hands:
+        two_hand_result = process_recording_two_handed(recording, config)
+        if two_hand_result is not None:
+            return two_hand_result
+        warnings.append("Two-hand processing failed, falling back to single-hand")
+
     # Extract landmark sequence
     sequence = recording_to_landmark_sequence(recording, config.target_hand)
 
@@ -666,6 +676,155 @@ def process_recording(
         sample_count=len(filtered),
         warnings=warnings,
         normalization_params=norm_params
+    )
+
+
+def process_recording_two_handed(
+    recording: Recording,
+    config: Optional[ProcessingConfig] = None
+) -> Optional[ProcessingResult]:
+    """
+    Process a two-handed recording to extract canonical pose for both hands.
+
+    Both hands are normalized relative to the right hand's reference frame
+    to preserve their spatial relationship.
+
+    Args:
+        recording: Recording with both hands detected
+        config: Processing configuration
+
+    Returns:
+        ProcessingResult with both hands, or None if processing failed
+    """
+    if config is None:
+        config = ProcessingConfig()
+
+    warnings = []
+
+    # Extract sequences for both hands
+    right_sequence = recording_to_landmark_sequence(recording, "right")
+    left_sequence = recording_to_landmark_sequence(recording, "left")
+
+    if not right_sequence:
+        warnings.append("No right hand data found")
+        return None
+
+    if not left_sequence:
+        warnings.append("No left hand data in two-handed recording, falling back to single-hand")
+        return process_recording(recording, config)
+
+    # Find frames where BOTH hands are detected (by matching timestamps)
+    right_by_ts = {ts: (lm, conf) for ts, lm, conf in right_sequence}
+    left_by_ts = {ts: (lm, conf) for ts, lm, conf in left_sequence}
+
+    common_timestamps = sorted(set(right_by_ts.keys()) & set(left_by_ts.keys()))
+
+    if len(common_timestamps) < 30:
+        warnings.append(
+            f"Only {len(common_timestamps)} frames with both hands detected "
+            f"(need 30). R={len(right_sequence)}, L={len(left_sequence)}"
+        )
+        if len(common_timestamps) < config.min_frames:
+            return None
+
+    # Build paired sequences
+    paired_right = [(ts, right_by_ts[ts][0], right_by_ts[ts][1]) for ts in common_timestamps]
+    paired_left = [(ts, left_by_ts[ts][0], left_by_ts[ts][1]) for ts in common_timestamps]
+
+    # Filter right hand frames (drives both)
+    filtered_right = filter_frames(
+        paired_right,
+        confidence_threshold=config.confidence_threshold,
+        outlier_method=config.outlier_method,
+        outlier_threshold=config.outlier_threshold,
+        remove_static=config.remove_static,
+        motion_threshold=config.motion_threshold
+    )
+
+    if len(filtered_right) < config.min_frames:
+        warnings.append(f"Too few frames after filtering: {len(filtered_right)}")
+        if not filtered_right:
+            return None
+
+    # Get matching left frames for the filtered timestamps
+    filtered_right_ts = {ts for ts, _, _ in filtered_right}
+    filtered_left = [(ts, lm, conf) for ts, lm, conf in paired_left if ts in filtered_right_ts]
+
+    # Normalize both hands relative to right hand
+    from src.normalize import normalize_two_hands
+
+    right_normalized = []
+    left_normalized = []
+    norm_result = None
+
+    for (_, r_lm, _), (_, l_lm, _) in zip(filtered_right, filtered_left):
+        r_result, l_norm = normalize_two_hands(r_lm, l_lm)
+        right_normalized.append(r_result.landmarks)
+        left_normalized.append(l_norm)
+        if norm_result is None:
+            norm_result = r_result
+
+    # Average to get canonical poses
+    if config.averaging_method == "mean":
+        right_canonical = average_landmarks_mean(right_normalized)
+        left_canonical = average_landmarks_mean(left_normalized)
+    elif config.averaging_method == "median":
+        right_canonical = average_landmarks_median(right_normalized)
+        left_canonical = average_landmarks_median(left_normalized)
+    else:
+        right_canonical = average_landmarks_trimmed(right_normalized, config.trim_ratio)
+        left_canonical = average_landmarks_trimmed(left_normalized, config.trim_ratio)
+
+    # Calculate tolerances for both hands
+    right_tol = calculate_tolerances(right_normalized, right_canonical)
+    left_tol = calculate_tolerances(left_normalized, left_canonical)
+
+    # Convert to Point3D lists
+    right_landmarks_list = [
+        Point3D(x=float(p[0]), y=float(p[1]), z=float(p[2]))
+        for p in right_canonical
+    ]
+    left_landmarks_list = [
+        Point3D(x=float(p[0]), y=float(p[1]), z=float(p[2]))
+        for p in left_canonical
+    ]
+
+    # Build combined tolerances
+    combined_tolerances = {}
+    for k, v in right_tol.position_tolerances.items():
+        combined_tolerances[f"pos_right_{k}"] = v
+    for k, v in right_tol.angle_tolerances.items():
+        combined_tolerances[f"angle_right_{k}"] = v
+    for k, v in left_tol.position_tolerances.items():
+        combined_tolerances[f"pos_left_{k}"] = v
+    for k, v in left_tol.angle_tolerances.items():
+        combined_tolerances[f"angle_left_{k}"] = v
+
+    pose = SignPose(
+        right_hand_landmarks=right_landmarks_list,
+        left_hand_landmarks=left_landmarks_list,
+        tolerances=combined_tolerances,
+    )
+
+    # Quality score
+    quality_score = calculate_recording_quality(recording) / 100.0
+    frame_retention = len(filtered_right) / len(common_timestamps) if common_timestamps else 0
+    quality_score = quality_score * (0.5 + 0.5 * frame_retention)
+
+    norm_params = None
+    if norm_result is not None:
+        norm_params = NormalizationParams(
+            scale_factor=float(norm_result.scale_factor) if norm_result.scale_factor > 0 else 1.0,
+            rotation_matrix=norm_result.rotation_matrix.tolist(),
+            translation_vector=norm_result.original_centroid.tolist()
+        )
+
+    return ProcessingResult(
+        canonical_pose=pose,
+        quality_score=min(1.0, max(0.0, quality_score)),
+        sample_count=len(filtered_right),
+        warnings=warnings,
+        normalization_params=norm_params,
     )
 
 

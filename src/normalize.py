@@ -553,3 +553,59 @@ def normalize_recording_landmarks(
 
     normalized = np.array([r.landmarks for r in results])
     return normalized, results[0]
+
+
+def normalize_two_hands(
+    right_landmarks: NDArray[np.floating],
+    left_landmarks: NDArray[np.floating],
+    translation_anchor: Literal["wrist", "centroid", "palm_center"] = "wrist",
+    scale_method: Literal["bbox", "palm"] = "palm",
+    target_scale: float = 1.0,
+    align_rotation: bool = True
+) -> tuple[NormalizationResult, NDArray[np.floating]]:
+    """
+    Normalize both hands relative to the right hand's reference frame.
+
+    Both hands are transformed using the right hand's wrist position,
+    palm width, and palm orientation. This preserves the spatial
+    relationship between the two hands, which is important for BSL
+    where the dominant hand touches/points at the non-dominant.
+
+    Args:
+        right_landmarks: Right hand landmarks (21, 3)
+        left_landmarks: Left hand landmarks (21, 3)
+        translation_anchor: Point to place at origin (from right hand)
+        scale_method: Method for scale normalization
+        target_scale: Target size after scaling
+        align_rotation: Whether to apply rotation normalization
+
+    Returns:
+        Tuple of (right_hand_NormalizationResult, left_hand_normalized_landmarks)
+    """
+    # Get right hand's transform parameters
+    right_result = normalize_all(
+        right_landmarks,
+        translation_anchor=translation_anchor,
+        scale_method=scale_method,
+        target_scale=target_scale,
+        align_rotation=align_rotation,
+    )
+
+    # Apply the SAME transform to left hand
+    # Step 1: Same translation (right hand's anchor)
+    left_translated = left_landmarks - right_result.original_centroid
+
+    # Step 2: Same scale
+    if right_result.scale_factor > 1e-10:
+        left_scaled = left_translated / right_result.scale_factor
+    else:
+        left_scaled = left_translated
+
+    # Step 3: Same rotation
+    if align_rotation:
+        from .math_utils import apply_rotation
+        left_normalized = apply_rotation(left_scaled, right_result.rotation_matrix)
+    else:
+        left_normalized = left_scaled
+
+    return right_result, left_normalized
